@@ -20,8 +20,8 @@ The paper includes two case studies:
 ### Preprocessing Steps
 1. Categorical encoding (LabelEncoder fitted on training data only)
 2. Numerical scaling (StandardScaler fitted on training data only)
-3. Missing value handling (median for numerical, mode for categorical)
-4. No target leakage: all transformations fitted on training split only
+3. Missing value handling: categorical missing values filled with 'Unknown'; numerical missing values imputed using training-split median only
+4. No target or feature leakage: all statistics (medians, encoders, scaler parameters) fitted on training split only
 
 ## Model and XAI Implementations
 

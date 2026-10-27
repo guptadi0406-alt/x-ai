@@ -32,7 +32,8 @@ models:
   logistic_regression:
     name: "Logistic Regression"
     abbreviation: "LR"
-    use_default_params: true
+    # Deviation: max_iter=1000 (sklearn default=100, insufficient for convergence)
+    max_iter: 1000
   lightgbm:
     name: "LightGBM"
     abbreviation: "LGBM"
@@ -40,11 +41,11 @@ models:
   svc:
     name: "Support Vector Classifier"
     abbreviation: "SVC"
-    use_default_params: true
-    probability: true  # needed for LIME
+    # Deviation: probability=True required for LIME/ROC-AUC (default=False)
+    probability: true
 
 shap:
-  n_background_samples: 100  # for KernelSHAP
+  n_background_samples: 100  # for KernelSHAP (SVC)
   
 lime:
   n_samples: 5000  # perturbation samples
@@ -61,6 +62,12 @@ nmr:
 mip:
   # Apply MIP to model with lowest NMR
   target_model: "LGBM"
+
+extension:
+  # Unified correlation threshold — used consistently across run_all.py
+  # and correlation_aware.py (previously 0.5 in run_all, 0.6 in extension)
+  correlation_threshold: 0.6
+  correlation_method: "pearson"
 
 visualization:
   figsize_large: [14, 10]
