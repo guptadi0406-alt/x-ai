@@ -1,0 +1,65 @@
+# Python Bytecode and Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*-checkpoint.html
+*-checkpoint.ipynb
+
+# Data Files (Keep structure, ignore large raw datasets)
+# data/*.csv
+# data/*.parquet
+# data/*.feather
+# data/*.zip
+# data/*.tar.gz
+# !data/.gitkeep
+
+# Model Artifacts & Checkpoints
+models/*.pkl
+models/*.joblib
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.bin
+!models/.gitkeep
+
+# Logs and Temporary Files
+*.log
+*.tmp
+scratch/
+
+# OS Specific Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo

@@ -1,0 +1,68 @@
+{
+  "classifier_performance": {
+    "DT": {
+      "accuracy": 0.83,
+      "precision": 0.8367,
+      "recall": 0.82,
+      "f1": 0.8283,
+      "roc_auc": 0.83
+    },
+    "LR": {
+      "accuracy": 0.83,
+      "precision": 0.8837,
+      "recall": 0.76,
+      "f1": 0.8172,
+      "roc_auc": 0.9048
+    },
+    "LGBM": {
+      "accuracy": 0.95,
+      "precision": 0.9787,
+      "recall": 0.92,
+      "f1": 0.9485,
+      "roc_auc": 0.9852
+    },
+    "SVC": {
+      "accuracy": 0.88,
+      "precision": 0.9524,
+      "recall": 0.8,
+      "f1": 0.8696,
+      "roc_auc": 0.966
+    }
+  },
+  "nmr": {
+    "DT": {
+      "nmr": 0.422,
+      "paper": 0.445
+    },
+    "LR": {
+      "nmr": 0.324,
+      "paper": 0.275
+    },
+    "LGBM": {
+      "nmr": 0.36,
+      "paper": 0.231
+    },
+    "SVC": {
+      "nmr": 0.342,
+      "paper": 0.273
+    }
+  },
+  "extension": {
+    "model_stability": {
+      "DT": 0.912,
+      "LR": 1.0,
+      "LGBM": 1.0,
+      "SVC": 0.996
+    },
+    "method_comparison": {
+      "DT": 0.986,
+      "LR": 0.968,
+      "LGBM": 0.975,
+      "SVC": 0.997
+    },
+    "cross_model_agreement": {
+      "baseline_shap": 0.569,
+      "correlation_aware": 0.555
+    }
+  }
+}

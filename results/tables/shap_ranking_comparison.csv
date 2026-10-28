@@ -1,0 +1,23 @@
+Rank,DT,LR,LGBM,SVC
+1,Online boarding,Type of Travel,Online boarding,Online boarding
+2,Inflight wifi service,Online boarding,Type of Travel,Inflight wifi service
+3,Type of Travel,Cleanliness,Inflight wifi service,Type of Travel
+4,Age,Checkin service,Flight Distance,Cleanliness
+5,Flight Distance,Leg room service,Age,Leg room service
+6,Ease of Online booking,Customer Type,Leg room service,Flight Distance
+7,Cleanliness,Class,Checkin service,Class
+8,Seat comfort,Baggage handling,Customer Type,Checkin service
+9,Leg room service,Inflight wifi service,Cleanliness,Departure/Arrival time convenient
+10,Customer Type,Departure Delay in Minutes,Inflight entertainment,On-board service
+11,Inflight service,Food and drink,Class,Seat comfort
+12,Food and drink,Flight Distance,Departure Delay in Minutes,Inflight entertainment
+13,Inflight entertainment,Arrival Delay in Minutes,Ease of Online booking,Ease of Online booking
+14,Arrival Delay in Minutes,On-board service,Baggage handling,Customer Type
+15,Checkin service,Age,Arrival Delay in Minutes,Age
+16,Gender,Seat comfort,On-board service,Baggage handling
+17,Departure Delay in Minutes,Departure/Arrival time convenient,Seat comfort,Gate location
+18,Baggage handling,Gate location,Food and drink,Inflight service
+19,Departure/Arrival time convenient,Gender,Gate location,Departure Delay in Minutes
+20,On-board service,Inflight service,Inflight service,Food and drink
+21,Class,Ease of Online booking,Gender,Arrival Delay in Minutes
+22,Gate location,Inflight entertainment,Departure/Arrival time convenient,Gender

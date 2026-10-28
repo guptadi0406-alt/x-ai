@@ -1,0 +1,23 @@
+Feature,SHAP_Rank,MIP_Rank,Rank_Change,MIP_Score
+Type of Travel,1,1,0,22.0
+Online boarding,2,20,-18,1.5
+Cleanliness,3,22,-19,1.1666666666666665
+Checkin service,4,18,-14,1.75
+Leg room service,5,21,-16,1.5
+Customer Type,6,16,-10,2.3125
+Class,7,6,1,5.0
+Baggage handling,8,14,-6,2.5384615384615383
+Inflight wifi service,9,13,-4,2.833333333333333
+Departure Delay in Minutes,10,19,-9,1.5294117647058822
+Food and drink,11,7,4,4.909090909090909
+Flight Distance,12,8,4,4.1
+Arrival Delay in Minutes,13,17,-4,2.1666666666666665
+On-board service,14,11,3,3.083333333333333
+Age,15,12,3,2.9333333333333336
+Seat comfort,16,3,13,7.0
+Departure/Arrival time convenient,17,4,13,5.75
+Gate location,18,10,8,3.35
+Gender,19,15,4,2.4473684210526314
+Inflight service,20,9,11,3.357142857142857
+Ease of Online booking,21,5,16,5.722222222222222
+Inflight entertainment,22,2,20,7.5

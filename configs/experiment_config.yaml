@@ -1,0 +1,75 @@
+# Experiment Configuration for XAI Paper Replication
+# Paper: "A Perspective on Explainable AI Methods: SHAP and LIME"
+# DOI: https://doi.org/10.1002/aisy.202400304
+
+experiment:
+  name: "xai_shap_lime_replication"
+  description: "Replication of Salih et al. (2024) XAI perspective paper"
+  
+dataset:
+  name: "airline_passenger_satisfaction"
+  source: "kaggle"
+  # Paper specifies: 500 subjects, 250 satisfied, 22 features, 80/20 split
+  n_samples: 500
+  n_satisfied: 250
+  n_features: 22
+  test_size: 0.2
+  
+random_seeds:
+  master_seed: 42
+  sampling_seed: 42
+  split_seed: 42
+  shap_seed: 42
+  lime_seed: 42
+  # Additional seeds for robustness analysis
+  robustness_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+models:
+  decision_tree:
+    name: "Decision Tree"
+    abbreviation: "DT"
+    use_default_params: true
+  logistic_regression:
+    name: "Logistic Regression"
+    abbreviation: "LR"
+    use_default_params: true
+  lightgbm:
+    name: "LightGBM"
+    abbreviation: "LGBM"
+    use_default_params: true
+  svc:
+    name: "Support Vector Classifier"
+    abbreviation: "SVC"
+    use_default_params: true
+    probability: true  # needed for LIME
+
+shap:
+  n_background_samples: 100  # for KernelSHAP
+  
+lime:
+  n_samples: 5000  # perturbation samples
+  n_features: 22   # all features
+  
+nmr:
+  # Paper-reported NMR values for reference
+  paper_values:
+    LGBM: 0.231
+    LR: 0.275
+    DT: 0.445
+    SVC: 0.273
+
+mip:
+  # Apply MIP to model with lowest NMR
+  target_model: "LGBM"
+
+visualization:
+  figsize_large: [14, 10]
+  figsize_medium: [10, 8]
+  figsize_small: [8, 6]
+  dpi: 150
+  style: "seaborn-v0_8-whitegrid"
+  
+output:
+  results_dir: "results"
+  figures_dir: "results/figures"
+  tables_dir: "results/tables"
