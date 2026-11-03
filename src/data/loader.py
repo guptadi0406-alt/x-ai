@@ -179,6 +179,12 @@ def sample_dataset(df: pd.DataFrame, n_samples: int = 500,
     Returns
     -------
     pd.DataFrame
+
+    Raises
+    ------
+    ValueError
+        If the dataset contains an unexpected non-missing target label, or
+        does not contain enough examples of either expected class.
     """
     # Identify target column
     target_col = None
@@ -190,9 +196,28 @@ def sample_dataset(df: pd.DataFrame, n_samples: int = 500,
     if target_col is None:
         raise ValueError("Cannot find 'satisfaction' column in dataset")
 
-    # Exact-match filtering on known class names (robust vs str.contains)
-    satisfied = df[df[target_col].str.strip().str.lower() == TARGET_POSITIVE]
-    not_satisfied = df[df[target_col].str.strip().str.lower() != TARGET_POSITIVE]
+    # Normalize labels, discard missing targets, and reject unexpected classes
+    # rather than silently treating every non-positive value as a negative.
+    labels = df[target_col].astype('string').str.strip().str.lower()
+    missing_labels = labels.isna()
+    if missing_labels.any():
+        logger.warning(
+            "Ignoring %d rows with missing satisfaction values",
+            int(missing_labels.sum()),
+        )
+
+    unexpected_labels = labels[
+        ~missing_labels & ~labels.isin([TARGET_POSITIVE, TARGET_NEGATIVE])
+    ]
+    if not unexpected_labels.empty:
+        unexpected = sorted(unexpected_labels.unique().tolist())
+        raise ValueError(
+            "Unexpected values in 'satisfaction' column: "
+            f"{unexpected}. Expected '{TARGET_POSITIVE}' or '{TARGET_NEGATIVE}'."
+        )
+
+    satisfied = df.loc[labels.eq(TARGET_POSITIVE).fillna(False)]
+    not_satisfied = df.loc[labels.eq(TARGET_NEGATIVE).fillna(False)]
 
     n_negative = n_samples - n_positive
 

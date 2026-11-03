@@ -97,6 +97,40 @@ class TestDatasetValidation:
         assert df['satisfaction'].isnull().sum() == 0
 
 
+class TestDatasetSampling:
+    def test_unexpected_target_label_raises(self):
+        from src.data.loader import sample_dataset
+
+        df = pd.DataFrame({
+            'satisfaction': [
+                'satisfied', 'satisfied',
+                'neutral or dissatisfied', 'unknown',
+            ],
+        })
+
+        with pytest.raises(ValueError, match="Unexpected values.*unknown"):
+            sample_dataset(df, n_samples=4, n_positive=2)
+
+    def test_missing_targets_are_excluded(self):
+        from src.data.loader import sample_dataset
+
+        df = pd.DataFrame({
+            'satisfaction': [
+                'satisfied', 'satisfied',
+                'neutral or dissatisfied', 'neutral or dissatisfied', None,
+            ],
+        })
+
+        sampled = sample_dataset(df, n_samples=4, n_positive=2)
+
+        assert len(sampled) == 4
+        assert sampled['satisfaction'].notna().all()
+        assert sampled['satisfaction'].value_counts().to_dict() == {
+            'satisfied': 2,
+            'neutral or dissatisfied': 2,
+        }
+
+
 # ============================================================================
 # Test: Preprocessing
 # ============================================================================
