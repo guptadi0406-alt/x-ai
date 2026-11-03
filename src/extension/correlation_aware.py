@@ -28,6 +28,9 @@ import pandas as pd
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.base import clone
 from scipy.stats import spearmanr
+import scipy.cluster.hierarchy as sch
+from scipy.spatial.distance import squareform
+from typing import Optional
 from typing import Dict, List, Any, Tuple
 import warnings
 
@@ -310,6 +313,184 @@ def multi_seed_shap_analysis(model, X_train: pd.DataFrame, X_test: pd.DataFrame,
     }
 
 
+
+def build_hierarchical_dendrogram(X_train: pd.DataFrame,
+                                  method: str = "complete") -> Tuple[np.ndarray, sch.ClusterNode]:
+    """
+    Build a complete hierarchical linkage dendrogram based on correlation distance.
+    
+    Distance metric: d(f_i, f_j) = 1 - |r_pearson(f_i, f_j)|.
+    
+    Parameters
+    ----------
+    X_train : pd.DataFrame
+        Training features.
+    method : str
+        Linkage method ('complete', 'average', etc.).
+        
+    Returns
+    -------
+    Tuple[np.ndarray, sch.ClusterNode]
+        The linkage matrix Z and root ClusterNode of the hierarchy tree.
+    """
+    corr_matrix = X_train.corr(method="pearson").abs().values
+    dist_matrix = np.clip(1.0 - corr_matrix, 0.0, 1.0)
+    np.fill_diagonal(dist_matrix, 0.0)
+    
+    condensed_dist = squareform(dist_matrix)
+    Z = sch.linkage(condensed_dist, method=method)
+    root_node = sch.to_tree(Z)
+    return Z, root_node
+
+
+def compute_hierarchical_partition_shap(model,
+                                        X_train: pd.DataFrame,
+                                        X_test: pd.DataFrame,
+                                        feature_names: list,
+                                        background: Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    Compute Hierarchical Partition / Owen Shapley values for an arbitrary model.
+    
+    Respects feature correlation geometry by constraining coalition paths along
+    the complete-linkage dendrogram (Owen, 1977; Lundberg et al., 2020).
+    Features clustered together in the hierarchy enter coalitions jointly,
+    avoiding off-manifold counterfactual evaluation and satisfying exact efficiency:
+    sum_i phi_i(x) = f(x) - f(background).
+    
+    Parameters
+    ----------
+    model : trained model
+        Classifier with predict_proba (or predict).
+    X_train : pd.DataFrame
+        Training features (used to compute background and correlation hierarchy).
+    X_test : pd.DataFrame
+        Test features to explain.
+    feature_names : list
+        Feature names.
+    background : np.ndarray, optional
+        Background reference instance (defaults to median of X_train).
+        
+    Returns
+    -------
+    np.ndarray
+        Partition SHAP attribution matrix of shape (n_test_samples, n_features).
+    """
+    n_test = len(X_test)
+    n_features = len(feature_names)
+    X_test_arr = X_test.values if isinstance(X_test, pd.DataFrame) else np.asarray(X_test)
+    
+    if background is None:
+        bg = X_train.median().values if isinstance(X_train, pd.DataFrame) else np.median(X_train, axis=0)
+    else:
+        bg = np.asarray(background)
+        
+    _, tree = build_hierarchical_dendrogram(X_train)
+    
+    def predict_batch(active_cols: List[int]) -> np.ndarray:
+        mat = np.tile(bg, (n_test, 1))
+        if active_cols:
+            mat[:, active_cols] = X_test_arr[:, active_cols]
+        df_mat = pd.DataFrame(mat, columns=feature_names)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if hasattr(model, "predict_proba"):
+                proba = model.predict_proba(df_mat)
+                return proba[:, 1] if proba.ndim == 2 and proba.shape[1] > 1 else proba.ravel()
+            return model.predict(df_mat).astype(float)
+            
+    p_base = predict_batch([])
+    p_full = predict_batch(list(range(n_features)))
+    expected_diff = p_full - p_base
+    
+    def get_leaves(node: sch.ClusterNode) -> List[int]:
+        if node.is_leaf():
+            return [node.id]
+        return get_leaves(node.left) + get_leaves(node.right)
+        
+    attributions = np.zeros((n_test, n_features))
+    
+    def partition_owen_recurse(node: sch.ClusterNode,
+                               active_context: List[int],
+                               parent_attr: np.ndarray):
+        if node.is_leaf():
+            attributions[:, node.id] = parent_attr
+            return
+            
+        left_leaves = get_leaves(node.left)
+        right_leaves = get_leaves(node.right)
+        
+        p_ctx = predict_batch(active_context)
+        p_left = predict_batch(active_context + left_leaves)
+        p_right = predict_batch(active_context + right_leaves)
+        p_both = predict_batch(active_context + left_leaves + right_leaves)
+        
+        m_left = 0.5 * ((p_left - p_ctx) + (p_both - p_right))
+        m_right = 0.5 * ((p_right - p_ctx) + (p_both - p_left))
+        
+        m_sum = m_left + m_right
+        mask_nonzero = np.abs(m_sum) > 1e-12
+        
+        attr_left = np.zeros(n_test)
+        attr_right = np.zeros(n_test)
+        
+        attr_left[mask_nonzero] = parent_attr[mask_nonzero] * (m_left[mask_nonzero] / m_sum[mask_nonzero])
+        attr_right[mask_nonzero] = parent_attr[mask_nonzero] * (m_right[mask_nonzero] / m_sum[mask_nonzero])
+        
+        attr_left[~mask_nonzero] = 0.5 * parent_attr[~mask_nonzero]
+        attr_right[~mask_nonzero] = 0.5 * parent_attr[~mask_nonzero]
+        
+        partition_owen_recurse(node.left, active_context, attr_left)
+        partition_owen_recurse(node.right, active_context + left_leaves, attr_right)
+        
+    partition_owen_recurse(tree, [], expected_diff)
+    return attributions
+
+
+def compute_partition_shap_all_models(model_results: Dict[str, Dict],
+                                      X_train: pd.DataFrame,
+                                      X_test: pd.DataFrame,
+                                      feature_names: list) -> Dict[str, Any]:
+    """
+    Compute Hierarchical Partition SHAP across all models.
+    
+    Parameters
+    ----------
+    model_results : dict
+        Trained model results dictionary.
+    X_train : pd.DataFrame
+        Training data.
+    X_test : pd.DataFrame
+        Test data.
+    feature_names : list
+        Feature names.
+        
+    Returns
+    -------
+    dict
+        Model abbreviation -> {'shap_values': np.ndarray, 'feature_ranking': list, 'feature_importance': pd.DataFrame}
+    """
+    results = {}
+    for model_type, res in model_results.items():
+        print(f"  Computing Hierarchical Partition SHAP for {model_type}...")
+        model = res["model"]
+        part_shap = compute_hierarchical_partition_shap(model, X_train, X_test, feature_names)
+        mean_abs = np.abs(part_shap).mean(axis=0)
+        ranked_indices = np.argsort(mean_abs)[::-1]
+        ranking = [feature_names[i] for i in ranked_indices]
+        
+        imp_df = pd.DataFrame({
+            "Feature": ranking,
+            "Mean |Partition SHAP|": mean_abs[ranked_indices],
+            "Rank": range(1, len(feature_names) + 1),
+        })
+        results[model_type] = {
+            "shap_values": part_shap,
+            "feature_ranking": ranking,
+            "feature_importance": imp_df,
+        }
+    return results
+
+
 def run_extension_experiments(model_results: Dict[str, Dict],
                                shap_results: Dict[str, Dict],
                                X_train: pd.DataFrame, X_test: pd.DataFrame,
@@ -425,6 +606,18 @@ def run_extension_experiments(model_results: Dict[str, Dict],
         comparison_results[model_type] = comp
         print(f"  {model_type}: Baseline↔CA Spearman={comp['baseline_vs_ca_spearman']:.3f}")
 
+    # Component 6: Hierarchical Partition SHAP (Extension 2.0)
+    print("\n--- Component 6: Hierarchical Partition SHAP ---")
+    partition_shap_results = compute_partition_shap_all_models(
+        model_results, X_train, X_test, feature_names
+    )
+    partition_rankings = {m: partition_shap_results[m]['feature_ranking'] for m in partition_shap_results}
+    partition_agreement = pairwise_ranking_comparison(partition_rankings)
+    partition_mean = partition_agreement['Spearman'].mean()
+    
+    for m in partition_rankings:
+        print(f"  {m} top 5 (Partition SHAP): {partition_rankings[m][:5]}")
+
     # Cross-model agreement
     baseline_rankings = {m: shap_results[m]['feature_ranking'] for m in shap_results}
     baseline_agreement = pairwise_ranking_comparison(baseline_rankings)
@@ -436,6 +629,7 @@ def run_extension_experiments(model_results: Dict[str, Dict],
     print(f"\n  Cross-model agreement (mean Spearman):")
     print(f"    Baseline SHAP:       {baseline_mean:.3f}")
     print(f"    Correlation-Aware:   {ca_mean:.3f}")
+    print(f"    Partition SHAP:      {partition_mean:.3f}")
 
     # Flag contradicting result explicitly
     if ca_mean < baseline_mean:
@@ -463,6 +657,11 @@ def run_extension_experiments(model_results: Dict[str, Dict],
         'baseline_mean_spearman': baseline_mean,
         'ca_mean_spearman': ca_mean,
         'ca_beats_baseline': ca_mean >= baseline_mean,
+        'partition_shap_results': partition_shap_results,
+        'partition_rankings': partition_rankings,
+        'partition_agreement': partition_agreement,
+        'partition_mean_spearman': partition_mean,
+        'partition_beats_baseline': partition_mean >= baseline_mean,
         'correlation_threshold': correlation_threshold,
         'seeds_used': seeds,
     }

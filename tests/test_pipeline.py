@@ -579,5 +579,56 @@ class TestSerialization:
                 json.dump(results, f, default=strict_convert)
 
 
+
+
+# ============================================================================
+# Test: Hierarchical Partition SHAP (Extension 2.0)
+# ============================================================================
+
+class TestHierarchicalPartitionSHAP:
+    def test_build_hierarchical_dendrogram(self, synthetic_data):
+        """Dendrogram should merge n features into a valid binary tree."""
+        from src.extension.correlation_aware import build_hierarchical_dendrogram
+        X_df, _, _ = synthetic_data
+        Z, root = build_hierarchical_dendrogram(X_df)
+        
+        n_features = X_df.shape[1]
+        assert Z.shape == (n_features - 1, 4), f"Unexpected linkage matrix shape: {Z.shape}"
+        assert root.get_count() == n_features, f"Root count {root.get_count()} != {n_features}"
+
+    def test_partition_shap_output_shape(self, trained_models):
+        """Partition SHAP attributions should match (n_test, n_features)."""
+        from src.extension.correlation_aware import compute_hierarchical_partition_shap
+        dt = trained_models['DT']
+        X_train = trained_models['X_train']
+        X_test = trained_models['X_test']
+        fnames = trained_models['feature_names']
+        
+        part_shap = compute_hierarchical_partition_shap(dt, X_train, X_test, fnames)
+        assert part_shap.shape == (len(X_test), len(fnames))
+        assert np.all(np.isfinite(part_shap)), "Partition SHAP produced NaN or Inf"
+
+    def test_partition_shap_exact_efficiency(self, trained_models):
+        """Sum of partition attributions must equal f(x) - f(background) exactly."""
+        from src.extension.correlation_aware import compute_hierarchical_partition_shap
+        lr = trained_models['LR']
+        X_train = trained_models['X_train']
+        X_test = trained_models['X_test']
+        fnames = trained_models['feature_names']
+        
+        bg = X_train.median().values
+        part_shap = compute_hierarchical_partition_shap(lr, X_train, X_test, fnames, background=bg)
+        
+        # Calculate true f(x) - f(bg)
+        p_full = lr.predict_proba(X_test)[:, 1]
+        bg_df = pd.DataFrame(np.tile(bg, (len(X_test), 1)), columns=fnames)
+        p_base = lr.predict_proba(bg_df)[:, 1]
+        expected_diff = p_full - p_base
+        
+        actual_diff = part_shap.sum(axis=1)
+        np.testing.assert_allclose(actual_diff, expected_diff, atol=1e-7,
+                                  err_msg="Partition SHAP does not satisfy efficiency axiom!")
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])
